@@ -1,0 +1,302 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  publicKey         String   @unique
+  role              UserRole
+  isVerified        Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  zkProofHash       String?
+  identityCommitment String?
+  nullifierHash     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  profile           UserProfile?
+  provider          Provider?
+  patientSessions    Session[] @relation("PatientSessions")
+  providerSessions   Session[] @relation("ProviderSessions")
+  payments          Payment[]
+  reputationRecords  ReputationRecord[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  firstName   String
+  lastName    String
+  avatar      String?
+  bio         String?
+  phone       String?
+  dateOfBirth  DateTime?
+  timezone    String   @default("UTC")
+  language    String   @default("en")
+  notificationsEnabled Boolean @default(true)
+  privacySettings Json? // Store privacy preferences as JSON
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model Provider {
+  id                String         @id @default(cuid())
+  userId            String         @unique
+  type              ProviderType
+  isOnline          Boolean        @default(false)
+  isVerified        Boolean        @default(false)
+  verificationDate  DateTime?
+  rating            Float          @default(0)
+  totalSessions      Int            @default(0)
+  experience        Int            @default(0) // years of experience
+  bio               String
+  specialties        String[]       // Array of specialty strings
+  languages         String[]       // Array of language codes
+  education         String[]       // Array of education details
+  certifications    String[]       // Array of certifications
+  licenseNumber     String?
+  licenseExpiry     DateTime?
+  pricePerSession   Float
+  currency          String         @default("USD")
+  sessionDuration    Int            @default(60) // minutes
+  availability      Json?          // Weekly availability schedule
+  timezone          String         @default("UTC")
+  consultationFee   Float?         // Optional additional fee
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services          Service[]
+  reputationRecords  ReputationRecord[]
+  reviews           Review[]
+
+  @@map("providers")
+}
+
+model Service {
+  id              String       @id @default(cuid())
+  providerId       String
+  type             ServiceType
+  pricePerSession  Float
+  currency         String       @default("USD")
+  sessionDuration   Int          @default(60) // minutes
+  isActive         Boolean      @default(true)
+  description      String?
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  // Relations
+  provider         Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  sessions         Session[]
+
+  @@map("services")
+}
+
+model Session {
+  id              String        @id @default(cuid())
+  patientId       String
+  providerId       String
+  serviceId        String
+  type            SessionType
+  status          SessionStatus @default(SCHEDULED)
+  scheduledAt      DateTime
+  startedAt        DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  duration         Int           @default(60) // minutes
+  price            Float
+  currency         String        @default("USD")
+  notes            String?
+  anonymous        Boolean       @default(false)
+  zkProofHash      String?       // Privacy proof for the session
+  sessionToken     String?       // For secure session access
+  meetingLink      String?       // Video conference link
+  recordingUrl     String?       // Session recording (if enabled)
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  patient          User @relation("PatientSessions", fields: [patientId], references: [id], onDelete: Cascade)
+  provider         User @relation("ProviderSessions", fields: [providerId], references: [id], onDelete: Cascade)
+  service          Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  payment          Payment?
+  dispute          Dispute?
+
+  @@map("sessions")
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  sessionId       String       @unique
+  payerId         String
+  payeeId         String
+  amount           Float
+  currency         String        @default("USD")
+  status           PaymentStatus @default(PENDING)
+  escrowTxId      String?       // Stellar transaction ID for escrow
+  releaseTxId      String?       // Stellar transaction ID for release
+  refundTxId       String?       // Stellar transaction ID for refund
+  stellarContract   String?       // Smart contract address
+  paymentMethod     String        @default("stellar")
+  fee              Float         @default(0) // Platform fee
+  netAmount        Float?        // Amount after fees
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  // Relations
+  session          Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  payer            User @relation(fields: [payerId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Review {
+  id          String   @id @default(cuid())
+  sessionId    String   @unique
+  providerId   String
+  patientId    String
+  rating       Int      // 1-5 stars
+  comment      String?
+  anonymous    Boolean  @default(false)
+  isVerified   Boolean  @default(false) // Verified that the session actually happened
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  provider     Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
+
+model ReputationRecord {
+  id            String   @id @default(cuid())
+  userId        String
+  sessionId     String?
+  type          ReputationType
+  score         Float
+  description   String?
+  evidence      String? // IPFS hash of evidence
+  isVerified    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  // Relations
+  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider       Provider? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("reputation_records")
+}
+
+model Dispute {
+  id            String       @id @default(cuid())
+  sessionId     String       @unique
+  initiatedBy   String       // User ID who initiated the dispute
+  reason        String
+  description   String
+  status        DisputeStatus @default(OPEN)
+  evidence      String[]     // Array of evidence URLs/IPFS hashes
+  resolution    String?      // Dispute resolution details
+  resolvedBy    String?      // Admin ID who resolved
+  resolvedAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  session       Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("disputes")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?  // User who performed the action
+  action      String   // Action performed
+  resource    String   // Resource affected
+  details     Json?    // Additional details
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  PATIENT
+  PROVIDER
+  ADMIN
+}
+
+enum ProviderType {
+  THERAPIST
+  COUNSELOR
+  PSYCHIATRIST
+  SOCIAL_WORKER
+}
+
+enum ServiceType {
+  THERAPY
+  COUNSELING
+  PSYCHIATRY
+  LIFE_COACHING
+}
+
+enum SessionType {
+  THERAPY
+  COUNSELING
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  ESCROWED
+  COMPLETED
+  REFUNDED
+  DISPUTED
+  FAILED
+}
+
+enum ReputationType {
+  SESSION_COMPLETION
+  POSITIVE_REVIEW
+  NEGATIVE_REVIEW
+  VERIFICATION
+  PROFESSIONAL_CONDUCT
+  TIMELINESS
+}
+
+enum DisputeStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}

@@ -1,0 +1,19 @@
+[networks]
+standalone = "http://localhost:8000/soroban/rpc"
+futurenet = "https://futurenet.stellar.org"
+
+[contracts]
+payment_escrow = "payment_escrow"
+identity_verification = "identity_verification"
+reputation_system = "reputation_system"
+session_management = "session_management"
+token_distribution = "token_distribution"
+
+[build]
+target = "wasm32-unknown-unknown"
+optimize = true
+overflow-checks = true
+
+[deploy]
+network = "futurenet"
+fee = 10000
