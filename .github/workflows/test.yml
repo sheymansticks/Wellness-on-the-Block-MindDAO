@@ -17,6 +17,15 @@ concurrency:
   group: backend-tests-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege default for the GITHUB_TOKEN. Every job
+# inherits `contents: read`; jobs that need to write (release,
+# deploy, etc.) can opt into higher scopes locally. This is the
+# GitHub-recommended pattern for public repos and is the hard
+# requirement for restricting the default token scope under
+# branch protection.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: jest (with Redis)
@@ -115,3 +124,44 @@ jobs:
         # UI for future regressions and matches what a deploy
         # would do (`npm run build` is the same script).
         run: npm run build
+
+  # Parallel `lint` job. Runs `npm run lint` -> `eslint src/**/*.ts`
+  # (per package.json). The config (backend/.eslintrc.json) extends
+  # @typescript-eslint/recommended + eslint:recommended with
+  # no-explicit-any + no-unused-vars disabled, so the baseline
+  # passes today; new violations of the remaining strict rules
+  # (no-undef, no-console, no-var, prefer-const, ...) will fail
+  # this job. Runs in parallel with `test` and `build` -- no
+  # `needs:` clause.
+  lint:
+    name: eslint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        # `npm ci` for reproducibility and dependency-drift
+        # detection (matches the other two jobs).
+        run: npm ci
+
+      - name: Lint
+        # `npm run lint` -> `eslint src/**/*.ts` (per
+        # package.json). Uses the config at
+        # backend/.eslintrc.json (extends recommended; permissive
+        # on no-explicit-any + no-unused-vars so the baseline is
+        # clean). Fails the job on any remaining-rule violation,
+        # so regressions in the strict subset (no-undef,
+        # no-console, no-var, prefer-const, ...) are caught at
+        # CI time.
+        run: npm run lint
