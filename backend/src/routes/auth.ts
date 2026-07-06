@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { body, validationResult } from 'express-validator'
 import { asyncHandler } from '@/middleware/errorHandler'
+import { authRateLimit } from '@/middleware/rateLimit'
 import { loginUser, registerUser, refreshToken } from '@/services/authService'
-import { generateZKProof } from '@/services/zkService'
 
 const router = Router()
 
@@ -21,7 +21,12 @@ const validateLogin = [
 ]
 
 // Register new user
-router.post('/register', validateRegistration, asyncHandler(async (req, res) => {
+//
+// `authRateLimit` runs FIRST as the route-level guard. Because this route
+// is unauthenticated the keyer falls back to IP — that's intentional: a
+// single attacker IP can't enumerate accounts / brute-force credentials
+// on behalf of a legitimate user.
+router.post('/register', authRateLimit, validateRegistration, asyncHandler(async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -44,7 +49,10 @@ router.post('/register', validateRegistration, asyncHandler(async (req, res) => 
 }))
 
 // Login user
-router.post('/login', validateLogin, asyncHandler(async (req, res) => {
+//
+// Same IP-fallback behavior as /register: limits login brute force from
+// a single attacker IP without throttling legitimate unrelated traffic.
+router.post('/login', authRateLimit, validateLogin, asyncHandler(async (req, res) => {
   const errors = validationResult(req)
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -67,7 +75,10 @@ router.post('/login', validateLogin, asyncHandler(async (req, res) => {
 }))
 
 // Refresh token
-router.post('/refresh', asyncHandler(async (req, res) => {
+//
+// IP-keyed since no JWT is in play here. Stops refresh-token replay
+// storms from a single IP without affecting other unrelated users.
+router.post('/refresh', authRateLimit, asyncHandler(async (req, res) => {
   const { refreshToken } = req.body
   const result = await refreshToken(refreshToken)
 
@@ -79,19 +90,4 @@ router.post('/refresh', asyncHandler(async (req, res) => {
     }
   })
 }))
-
-// Generate ZK proof for privacy
-router.post('/zk-proof', asyncHandler(async (req, res) => {
-  const { identityCommitment, nullifier } = req.body
-  const result = await generateZKProof({ identityCommitment, nullifier })
-
-  res.json({
-    success: true,
-    data: {
-      proofHash: result.proofHash,
-      proof: result.proof
-    }
-  })
-}))
-
 export default router
