@@ -79,5 +79,3 @@ export function setupSocketHandlers(io: SocketIOServer): void {
     })
   })
 }
-
-export { io }

@@ -29,7 +29,7 @@ model User {
   patientSessions    Session[] @relation("PatientSessions")
   providerSessions   Session[] @relation("ProviderSessions")
   payments          Payment[]
-  reputationRecords  ReputationRecord[]
+  reputationRecords  ReputationRecord[] @relation("ActorReputation")
 
   @@map("users")
 }
@@ -87,7 +87,6 @@ model Provider {
   // Relations
   user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
   services          Service[]
-  reputationRecords  ReputationRecord[]
   reviews           Review[]
 
   @@map("providers")
@@ -202,8 +201,13 @@ model ReputationRecord {
   createdAt     DateTime @default(now())
 
   // Relations
-  user          User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  provider       Provider? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Note: a previous version of this schema declared a duplicate `provider`
+  // relation on the same `userId` field. Postgres cannot express two FKs on
+  // one column targeting different tables reliably, and Prisma refuses to
+  // generate it. Provider reputation should be read from `Provider.rating`
+  // (which is updated by the ReputationSystem contract via the backend
+  // orchestrator), not via a sibling FK here.
+  user          User @relation("ActorReputation", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("reputation_records")
 }

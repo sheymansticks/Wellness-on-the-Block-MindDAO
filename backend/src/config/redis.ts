@@ -10,7 +10,6 @@ export async function connectRedis(): Promise<Redis> {
       port: parseInt(process.env.REDIS_PORT || '6379'),
       password: process.env.REDIS_PASSWORD,
       db: parseInt(process.env.REDIS_DB || '0'),
-      retryDelayOnFailover: 100,
       enableReadyCheck: false,
       maxRetriesPerRequest: null,
     })
@@ -50,5 +49,3 @@ export async function disconnectRedis(): Promise<void> {
     logger.info('Redis disconnected successfully')
   }
 }
-
-export default redis
