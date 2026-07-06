@@ -1,0 +1,117 @@
+name: Backend Tests
+
+# Trigger on push / PR when anything in the backend changes. The
+# `paths` filter keeps unrelated frontend / zk-proof / smart-contract
+# commits from spinning up a Node + Redis job for no reason.
+on:
+  push:
+    paths:
+      - 'backend/**'
+  pull_request:
+    paths:
+      - 'backend/**'
+
+# Cancel in-flight runs on the same ref so a force-push or rapid
+# follow-up commit doesn't burn a second Redis container.
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: jest (with Redis)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    # Service container for the Redis-backed rate-limit integration
+    # test (and any future tests that need Redis). GitHub will wait
+    # for the healthcheck to pass before the job's `steps` run, so
+    # `connectRedis()` in `beforeAll` won't race the container boot.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # `REDIS_HOST=127.0.0.1` resolves to the service container
+      # above. `connectRedis()` in `src/config/redis.ts` reads
+      # `process.env.REDIS_*` and falls back to those defaults.
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: '6379'
+      # Dedicated test DB so a re-run (or a parallel matrix run)
+      # can't trample on real data. The test file also re-asserts
+      # this in its `beforeAll`; this env var is belt-and-braces.
+      REDIS_DB: '15'
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Project requires `node >= 18.0.0` per
+          # `backend/package.json#engines`. Pin to the current LTS.
+          node-version: '20'
+
+      - name: Install dependencies
+        # `npm ci` is faster and reproducible; it will fail the
+        # build if `package.json` and `package-lock.json` drift
+        # apart, so dependency drift is caught at CI time.
+        run: npm ci
+
+      - name: Run tests
+        # `npm test` -> `jest` (per package.json). The rate-limit
+        # integration test in `src/__tests__/rateLimit.test.ts`
+        # uses `process.env.REDIS_DB = '15'` in its `beforeAll`
+        # and flushes the `rl:*` key prefix between cases, so
+        # this run is hermetic.
+        run: npm test
+
+  # Parallel `build` job. Runs `npm run build` -> `tsc` (per
+  # package.json), which emits JS to `backend/dist/`. The 3
+  # pre-existing tsc errors in `config/redis.ts` (2) and
+  # `services/socketService.ts` (1) that previously blocked this
+  # job are now fixed, so a clean `tsc` is the new floor: any
+  # future tsc regression fails this job before it can land.
+  # Runs in parallel with `test` — no `needs:` clause — so the
+  # test job's own ts-jest type-check and the build job's `tsc`
+  # can race each other rather than serialising.
+  build:
+    name: tsc build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        # Same as the test job: `npm ci` for reproducibility and
+        # dependency-drift detection.
+        run: npm ci
+
+      - name: Type-check + emit
+        # Canonical "tsc must pass" check. Emits `dist/` for the
+        # backend. The test job's ts-jest is ALSO a type-check,
+        # but the build job is the clearer signal in the GitHub
+        # UI for future regressions and matches what a deploy
+        # would do (`npm run build` is the same script).
+        run: npm run build
