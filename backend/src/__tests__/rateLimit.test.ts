@@ -5,6 +5,7 @@ import {
   perUserRateLimit,
   authRateLimit,
 } from '../middleware/rateLimit'
+import type { TokenPayload } from '../services/authService'
 
 /**
  * Build a minimal Express app that simulates a JWT-authenticated user
@@ -23,10 +24,13 @@ function makeApp(opts: {
     if (opts.userId !== undefined) {
       // The production route chain (`requireAuth` -> `getAuthUser`)
       // populates `req.user` from a verified JWT. For the rate-limit
-      // stub we only need the `userId` slice, so we type the local
-      // shape explicitly and intersect with the strict Express type.
-      const userReq = req as Request & { user?: { userId: string } }
-      userReq.user = { userId: opts.userId }
+      // stub we only need the `userId` slice (the keyer is the only
+      // consumer), so we cast through `unknown` to satisfy
+      // `Express.Request.user?: TokenPayload` (defined by the global
+      // augmentation in `middleware/auth.ts`) without spelling out a
+      // full fake payload. Mirrors the cast pattern in
+      // `__tests__/auth.test.ts`.
+      req.user = { userId: opts.userId } as unknown as TokenPayload
     }
     next()
   })

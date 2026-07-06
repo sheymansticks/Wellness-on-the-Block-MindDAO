@@ -25,6 +25,9 @@ export interface PerUserRateLimitOpts {
  *      has not yet been called (integration tests, route imports at
  *      `server.ts` setup time), `getRedisClient()` throws and the
  *      init fails before any request ever hits the limiter.
+ *      (This invariant is upheld by `lazyLimiter` further below --
+ *      without that wrapper the prebuilt exports would re-introduce a
+ *      module-load-time store init and contradict this comment.)
  *   2. `sendCommand` is resolved LAZILY at request time, because
  *      `getRedisClient()` throws if `connectRedis()` hasn't run yet.
  *      `server.ts` calls `setupRoutes(app)` synchronously at module
@@ -99,6 +102,44 @@ export function perUserRateLimit(opts: PerUserRateLimitOpts): RateLimitRequestHa
   })
 }
 
+/**
+ * Wrap a `perUserRateLimit(...)` invocation in a lazy delegate so the
+ * underlying `rateLimit({store, ...})` middleware (which synchronously
+ * triggers `store.init()` on construction — and `RedisStore.init()` calls
+ * `sendCommand('KEYS rl:*')` immediately) does NOT fire at module-load
+ * time.
+ *
+ * The pre-built limiters below are imported by `routes/*` and `server.ts`
+ * at boot, and by the integration test BEFORE `beforeAll(async () =>
+ * connectRedis())` has run. Without this lazy wrapper, importing the
+ * limiters throws "Redis client not initialized" because
+ * `getRedisClient()` is called before `connectRedis()`. By wrapping each
+ * construction in a thin RequestHandler that builds the limiter on the
+ * first HTTP request, the Redis access happens after `connectRedis()`
+ * guarantees the client is ready.
+ *
+ * Concurrency: Node's single-threaded JS dispatch serializes the
+ * `if (!built) built = perUserRateLimit(opts)` check, so the returned
+ * delegate is built at most once per process — no race against parallel
+ * requests sharing the same prebuilt export.
+ *
+ * `.resetKey` is forwarded (and lazily built too) so the wrapper
+ * continues to satisfy `RateLimitRequestHandler`'s hybrid
+ * function-with-`resetKey` structural shape.
+ */
+function lazyLimiter(opts: PerUserRateLimitOpts): RateLimitRequestHandler {
+  let built: RateLimitRequestHandler | null = null
+  const handler: RateLimitRequestHandler = (req, res, next) => {
+    if (!built) built = perUserRateLimit(opts)
+    return built(req, res, next)
+  }
+  handler.resetKey = (key: string) => {
+    if (!built) built = perUserRateLimit(opts)
+    built.resetKey(key)
+  }
+  return handler
+}
+
 /* ------------------------------------------------------------------ */
 /* Pre-built limiters for routes flagged as expensive.                 */
 /* ------------------------------------------------------------------ */
@@ -110,7 +151,7 @@ export function perUserRateLimit(opts: PerUserRateLimitOpts): RateLimitRequestHa
  * so the limiter keys off the JWT subject and isn't reachable by
  * anonymous traffic.
  */
-export const zkVerifyLimiter = perUserRateLimit({
+export const zkVerifyLimiter = lazyLimiter({
   name: 'zk-verify',
   windowMs: 60 * 1000,
   max: 20,
@@ -122,7 +163,7 @@ export const zkVerifyLimiter = perUserRateLimit({
  * generous for legitimate re-tries but still defends against a runaway
  * script.
  */
-export const paymentReleaseLimiter = perUserRateLimit({
+export const paymentReleaseLimiter = lazyLimiter({
   name: 'payment-release',
   windowMs: 60 * 1000,
   max: 30,
@@ -135,7 +176,7 @@ export const paymentReleaseLimiter = perUserRateLimit({
  * is generous (proofs are cheap; the user shouldn't generate more than
  * one a second outside bulk scripts).
  */
-export const verifyRateLimit = perUserRateLimit({
+export const verifyRateLimit = lazyLimiter({
   name: 'zk-proof-gen',
   windowMs: 60 * 1000,
   max: 60,
@@ -150,7 +191,7 @@ export const verifyRateLimit = perUserRateLimit({
  * IP is tight enough to defeat credential stuffing without annoying
  * users who mistype a password twice.
  */
-export const authRateLimit = perUserRateLimit({
+export const authRateLimit = lazyLimiter({
   name: 'auth',
   windowMs: 60 * 1000,
   max: 10,
@@ -169,7 +210,7 @@ export const authRateLimit = perUserRateLimit({
  * is generous on profile updates (real providers iterate a few times
  * during onboarding) but still bounds runaway scripts.
  */
-export const providerWriteLimiter = perUserRateLimit({
+export const providerWriteLimiter = lazyLimiter({
   name: 'provider-write',
   windowMs: 60 * 1000,
   max: 30,
