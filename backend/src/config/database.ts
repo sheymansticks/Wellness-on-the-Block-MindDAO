@@ -2,7 +2,12 @@ import { PrismaClient } from '@prisma/client'
 import { logger } from '@/utils/logger'
 
 declare global {
-  let __prisma: PrismaClient | undefined
+  // `var` (not `let`/`const`) is required here: only `var`
+  // declarations inside `declare global` augment the
+  // `typeof globalThis` type. ESLint's `no-var` rule doesn't
+  // understand this TypeScript-ism, hence the per-line disable.
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined
 }
 
 // Prevent multiple instances of Prisma Client in development
