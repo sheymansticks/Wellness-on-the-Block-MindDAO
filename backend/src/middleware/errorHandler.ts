@@ -12,7 +12,7 @@ export function errorHandler(
   err: AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void {
   let error = { ...err }
   error.message = err.message
@@ -56,7 +56,7 @@ export function errorHandler(
   // Reference: https://www.prisma.io/docs/orm/reference/error-reference#error-codes
   if (err.name === 'PrismaClientKnownRequestError') {
     const code = err.code
-    const field = (err as any)?.meta?.target
+    const field = (err as unknown as { meta?: { target?: unknown } } | undefined)?.meta?.target
     if (code === 'P2002') {
       error = { ...error, message: `Duplicate field value${field ? `: ${String(field)}` : ''}`, statusCode: 409 }
     } else if (code === 'P2025') {

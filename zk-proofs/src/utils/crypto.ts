@@ -48,7 +48,7 @@ export class CryptoUtils {
   }
 
   // Generate deterministic commitment from multiple attributes
-  static generateCommitment(attributes: Record<string, any>): string {
+  static generateCommitment(attributes: Record<string, string | number | boolean>): string {
     const sortedKeys = Object.keys(attributes).sort();
     const concatenated = sortedKeys.map(key => `${key}:${attributes[key]}`).join('|');
     return this.hashData(concatenated);
@@ -184,7 +184,7 @@ export class CryptoUtils {
   }
 
   // Sanitize and validate input data
-  static sanitizeInput(input: any): string {
+  static sanitizeInput(input: unknown): string {
     if (typeof input === 'string') {
       // Remove potentially dangerous characters
       return input.replace(/[<>]/g, '');

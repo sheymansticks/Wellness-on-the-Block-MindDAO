@@ -122,6 +122,38 @@ wellness-on-the-block/
 
 We welcome contributions! Please see our contributing guidelines for more information.
 
+### Development workflow
+
+A pre-commit hook (via `husky` + `lint-staged`) runs `npm run lint` on any
+package whose source files you've changed, so lint violations are caught
+locally before they reach CI. The wrapped form (`sh -c 'cd <pkg> && npm run lint'`)
+instead of bare `cd <pkg> && npm run lint` is required because lint-staged's
+execa layer spawns the first token as a binary path; aliasing through `sh -c`
+is what actually reaches the shell.
+
+| Staged path                | Hook runs                                          |
+| -------------------------- | -------------------------------------------------- |
+| `backend/src/**/*.ts`      | `sh -c 'cd backend && npm run lint'`               |
+| `frontend/**/*.{ts,tsx}`   | `sh -c 'cd frontend && npm run lint'`              |
+| `zk-proofs/src/**/*.ts`    | `sh -c 'cd zk-proofs && npm run lint'`             |
+
+Setup notes:
+
+- After a fresh clone, run `npm install` at the **repo root** (not just
+  inside `backend/`/`frontend/`/`zk-proofs/`) — the `prepare: husky`
+  script wires `.husky/pre-commit` into git's hook path. Without the
+  root install the hook is silently absent and lint drift will only
+  surface in CI.
+- The hook lives in `.husky/pre-commit`; `core.hooksPath` is auto-configured
+  by `husky`, and the internal `.husky/_/` cache is gitignored.
+- Each command is wrapped as `sh -c 'cd <pkg> && npm run lint'`. The
+  wrapper is required: lint-staged's execa spawn layer treats the first
+  token as a binary path, and `cd` isn't a binary.
+- POSIX-only: the hook targets POSIX shells (`sh` must be on `PATH`).
+  Linux and macOS work natively; Windows requires WSL or Git-Bash.
+  Pure Git-for-Windows / PowerShell will lose the hook silently.
+- Bypass with `git commit --no-verify` only when absolutely necessary.
+
 ## License
 
 MIT License - see LICENSE file for details.

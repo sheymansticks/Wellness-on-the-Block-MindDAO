@@ -82,7 +82,7 @@ export async function submitContractCall(opts: ContractCallOptions): Promise<Con
  */
 export async function getContractEvents(
   contractName: ContractCallOptions['contractName'],
-  startLedger?: number,
+  _startLedger?: number,
 ): Promise<Array<{ topic: string; ledger: number; data: string }>> {
   configure()
   if (!SOROBAN_RPC_URL) {

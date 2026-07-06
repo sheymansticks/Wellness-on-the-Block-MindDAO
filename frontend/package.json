@@ -17,7 +17,7 @@
     "react-router-dom": "^6.15.0",
     "@reduxjs/toolkit": "^1.9.5",
     "react-redux": "^8.1.2",
-    "@stellar/stellar-sdk": "^10.1.2",
+    "@stellar/stellar-sdk": "^11.0.0",
     "@stellar/freighter-api": "^1.5.0",
     "ethers": "^6.7.1",
     "wagmi": "^1.4.4",

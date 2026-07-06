@@ -1,4 +1,4 @@
-import { Router } from 'express'
+import { Router, Application } from 'express'
 import authRoutes from './auth'
 import providerRoutes from './providers'
 import sessionRoutes from './sessions'
@@ -14,7 +14,7 @@ router.use('/api/v1/sessions', sessionRoutes)
 router.use('/api/v1/payments', paymentRoutes)
 router.use('/api/v1/zk', zkRoutes)
 
-export function setupRoutes(app: any): void {
+export function setupRoutes(app: Application): void {
   app.use(router)
 }
 

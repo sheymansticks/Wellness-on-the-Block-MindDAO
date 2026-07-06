@@ -97,7 +97,7 @@ describe('requireAuth', () => {
   })
 
   it('returns 200 on a valid token and populates req.user for the handler', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as any)
+    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     const app = makeApp(
       [requireAuth()],
       (req, res) => {
@@ -125,7 +125,7 @@ describe('requireRole', () => {
   })
 
   it('returns 403 when the user role is not in the allow list', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as any)
+    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     const app = makeApp([requireRole('PROVIDER', 'ADMIN')])
     const res = await request(app)
       .get('/probe')
@@ -136,7 +136,7 @@ describe('requireRole', () => {
   })
 
   it('returns 200 when the user role is in the allow list', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('bob', 'PROVIDER') as any)
+    mockedVerifyToken.mockResolvedValue(payload('bob', 'PROVIDER') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     const app = makeApp([requireRole('PROVIDER', 'ADMIN')])
     const res = await request(app)
       .get('/probe')
@@ -145,7 +145,7 @@ describe('requireRole', () => {
   })
 
   it('always allows ADMIN even if ADMIN is not in the allow list', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('eve', 'ADMIN') as any)
+    mockedVerifyToken.mockResolvedValue(payload('eve', 'ADMIN') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     // ADMIN is intentionally NOT in the allow list; the middleware
     // should still pass the request through (escape hatch).
     const app = makeApp([requireRole('PROVIDER')])
@@ -156,7 +156,7 @@ describe('requireRole', () => {
   })
 
   it('returns 200 for a multi-role allow list when the user has any of the roles', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as any)
+    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     const app = makeApp([requireRole('PATIENT', 'PROVIDER', 'ADMIN')])
     const res = await request(app)
       .get('/probe')
@@ -171,7 +171,7 @@ describe('requireRole', () => {
 
 describe('adminOnly', () => {
   it('returns 403 for a PATIENT', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as any)
+    mockedVerifyToken.mockResolvedValue(payload('alice', 'PATIENT') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     const app = makeApp([adminOnly()])
     const res = await request(app)
       .get('/probe')
@@ -181,7 +181,7 @@ describe('adminOnly', () => {
   })
 
   it('returns 403 for a PROVIDER', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('bob', 'PROVIDER') as any)
+    mockedVerifyToken.mockResolvedValue(payload('bob', 'PROVIDER') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     const app = makeApp([adminOnly()])
     const res = await request(app)
       .get('/probe')
@@ -190,7 +190,7 @@ describe('adminOnly', () => {
   })
 
   it('returns 200 for an ADMIN', async () => {
-    mockedVerifyToken.mockResolvedValue(payload('eve', 'ADMIN') as any)
+    mockedVerifyToken.mockResolvedValue(payload('eve', 'ADMIN') as unknown as Awaited<ReturnType<typeof verifyToken>>)
     const app = makeApp([adminOnly()])
     const res = await request(app)
       .get('/probe')
@@ -208,7 +208,7 @@ describe('getAuthUser', () => {
     let verifyCalls = 0
     mockedVerifyToken.mockImplementation(async () => {
       verifyCalls++
-      return payload('alice', 'PATIENT') as any
+      return payload('alice', 'PATIENT') as unknown as Awaited<ReturnType<typeof verifyToken>>
     })
 
     const app = express()

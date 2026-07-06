@@ -1,4 +1,4 @@
-import { Router, Request } from 'express'
+import { Router } from 'express'
 import { param, body, validationResult } from 'express-validator'
 import { SessionType, SessionStatus } from '@prisma/client'
 import { asyncHandler } from '@/middleware/errorHandler'

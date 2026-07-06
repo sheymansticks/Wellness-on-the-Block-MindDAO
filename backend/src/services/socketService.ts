@@ -42,7 +42,7 @@ export function setupSocketHandlers(io: SocketIOServer): void {
       logger.info(`User ${socket.userId} left session ${sessionId}`)
     })
 
-    socket.on('session-message', (data: { sessionId: string; message: any }) => {
+    socket.on('session-message', (data: { sessionId: string; message: unknown }) => {
       socket.to(`session_${data.sessionId}`).emit('session-message', {
         ...data,
         senderId: socket.userId,

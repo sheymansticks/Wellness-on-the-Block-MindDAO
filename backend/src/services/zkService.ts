@@ -2,6 +2,36 @@ import { groth16 } from 'snarkjs'
 import crypto from 'crypto'
 import { logger } from '@/utils/logger'
 
+// --- ZK proof / verification-key shapes ------------------------------------
+// We mirror the canonical shapes declared in `zk-proofs/src/types.ts` here
+// so the backend can typecheck against the same JSON layout that snarkjs's
+// `groth16.fullProve` and `groth16.verify` consume. Keeping these locally
+// avoids a backend -> zk-proofs cross-package import (the packages are
+// independent in this monorepo).
+type SnarkJsG1Point = [string, string, string]
+type SnarkJsG2Pair = [string, string]
+// `pi_b` in a groth16 proof carries three FQ^2 pairs (the third is the
+// 1 extra coord for the encoded G2 point over FQ^2).
+type SnarkJsG2ProofPoint = [SnarkJsG2Pair, SnarkJsG2Pair, SnarkJsG2Pair]
+// `vk_beta_2` / `vk_gamma_2` / `vk_delta_2` use the standard 2-pair form.
+type SnarkJsG2KeyPoint = [SnarkJsG2Pair, SnarkJsG2Pair]
+
+export type SnarkJsProof = {
+  pi_a: SnarkJsG1Point
+  pi_b: SnarkJsG2ProofPoint
+  pi_c: SnarkJsG1Point
+  protocol: string
+  curve: string
+}
+
+export type SnarkJsVerificationKey = {
+  vk_alpha_1: SnarkJsG1Point
+  vk_beta_2: SnarkJsG2KeyPoint
+  vk_gamma_2: SnarkJsG2KeyPoint
+  vk_delta_2: SnarkJsG2KeyPoint
+  IC: string[][]
+}
+
 // --- Verification result types ---------------------------------------------
 
 export interface VerificationResult {
@@ -26,7 +56,7 @@ export type ProofType = 'identity' | 'session' | 'age'
 
 export interface BatchVerifyItem {
   type: ProofType
-  proof: any
+  proof: SnarkJsProof
   publicSignals: string[]
   expectedCommitment?: string
   minAge?: number
@@ -37,7 +67,7 @@ export interface BatchVerifyItem {
 // after `snarkjs zkey export verificationkey`. The serve currently returns a
 // safe placeholder so the API does not crash in development.
 
-const PLACEHOLDER_KEYS: Record<ProofType, any> = {
+const PLACEHOLDER_KEYS: Record<ProofType, SnarkJsVerificationKey> = {
   identity: {
     vk_alpha_1: ['1', '0', '0'],
     vk_beta_2: [['1', '0'], ['0', '1']],
@@ -64,7 +94,7 @@ const PLACEHOLDER_KEYS: Record<ProofType, any> = {
 // --- Nullifier tracking -----------------------------------------------------
 
 class ProofServer {
-  private verificationKeys: Map<ProofType, any> = new Map()
+  private verificationKeys: Map<ProofType, SnarkJsVerificationKey> = new Map()
   private usedNullifiers: Set<string> = new Set()
 
   constructor() {
@@ -74,11 +104,11 @@ class ProofServer {
   }
 
   /** Replace placeholder keys with real ones loaded from disk in production. */
-  setVerificationKey(type: ProofType, key: any): void {
+  setVerificationKey(type: ProofType, key: SnarkJsVerificationKey): void {
     this.verificationKeys.set(type, key)
   }
 
-  async verifyIdentityProof(proof: any, publicSignals: string[]): Promise<VerificationResult> {
+  async verifyIdentityProof(proof: SnarkJsProof, publicSignals: string[]): Promise<VerificationResult> {
     return this.cryptoVerify('identity', proof, publicSignals, (signals) => {
       const currentTime = Math.floor(Date.now() / 1000)
       const proofTime = parseInt(signals.timestamp || '0', 10)
@@ -93,7 +123,7 @@ class ProofServer {
   }
 
   async verifySessionProof(
-    proof: any,
+    proof: SnarkJsProof,
     publicSignals: string[],
     expectedCommitment?: string,
   ): Promise<VerificationResult> {
@@ -108,7 +138,7 @@ class ProofServer {
     })
   }
 
-  async verifyAgeProof(proof: any, publicSignals: string[], minAge?: number): Promise<VerificationResult> {
+  async verifyAgeProof(proof: SnarkJsProof, publicSignals: string[], minAge?: number): Promise<VerificationResult> {
     return this.cryptoVerify('age', proof, publicSignals, (signals) => {
       const proofMinAge = parseInt(signals.minAge || '0', 10)
       if (minAge !== undefined && proofMinAge < minAge) {
@@ -144,7 +174,7 @@ class ProofServer {
 
   private async cryptoVerify(
     type: ProofType,
-    proof: any,
+    proof: SnarkJsProof,
     publicSignals: string[],
     businessCheck: (signals: PublicSignals) => string | null,
   ): Promise<VerificationResult> {

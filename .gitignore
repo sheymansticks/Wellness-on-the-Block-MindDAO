@@ -77,3 +77,6 @@ smart-contracts/openzeppelin/
 # ------------------------------------------------------------------
 frontend/dist/
 frontend/.vite/
+
+# husky internal cache (actual hook scripts in `.husky/<hook-name>` are tracked)
+.husky/_

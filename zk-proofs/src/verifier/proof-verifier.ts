@@ -1,7 +1,7 @@
 import { groth16 } from 'snarkjs';
 import { ethers } from 'ethers';
-import { CryptoUtils } from '../utils/crypto';
 import { ZK_CONSTANTS } from '../utils/crypto';
+import type { SnarkJsProof, SnarkJsVerificationKey } from '../types';
 
 // Verification result interface
 export interface VerificationResult {
@@ -24,7 +24,7 @@ export interface PublicSignals {
 
 // Main proof verifier class
 export class ProofVerifier {
-  private verificationKeys: Map<string, any> = new Map();
+  private verificationKeys: Map<string, SnarkJsVerificationKey> = new Map();
   private usedNullifiers: Set<string> = new Set();
 
   constructor() {
@@ -51,13 +51,13 @@ export class ProofVerifier {
   }
 
   // Load verification key from file or API
-  private async loadVerificationKey(circuitType: string): Promise<any> {
+  private async loadVerificationKey(circuitType: string): Promise<SnarkJsVerificationKey> {
     try {
       const response = await fetch(`/circuits/${circuitType}_verification_key.json`);
       if (!response.ok) {
         throw new Error(`Failed to load ${circuitType} verification key`);
       }
-      return await response.json();
+      return (await response.json()) as SnarkJsVerificationKey;
     } catch (error) {
       // Fallback to embedded verification key
       return this.getEmbeddedVerificationKey(circuitType);
@@ -65,9 +65,9 @@ export class ProofVerifier {
   }
 
   // Embedded verification keys (fallback)
-  private getEmbeddedVerificationKey(circuitType: string): any {
+  private getEmbeddedVerificationKey(circuitType: string): SnarkJsVerificationKey {
     // These would be the actual verification keys from circuit compilation
-    const keys: Record<string, any> = {
+    const keys: Record<string, SnarkJsVerificationKey> = {
       identity: {
         vk_alpha_1: ['1', '0', '0'],
         vk_beta_2: [
@@ -123,7 +123,7 @@ export class ProofVerifier {
 
   // Verify identity proof
   async verifyIdentityProof(
-    proof: any,
+    proof: SnarkJsProof,
     publicSignals: string[]
   ): Promise<VerificationResult> {
     try {
@@ -180,7 +180,7 @@ export class ProofVerifier {
 
   // Verify session participation proof
   async verifySessionProof(
-    proof: any,
+    proof: SnarkJsProof,
     publicSignals: string[],
     expectedCommitment?: string
   ): Promise<VerificationResult> {
@@ -245,7 +245,7 @@ export class ProofVerifier {
 
   // Verify age proof
   async verifyAgeProof(
-    proof: any,
+    proof: SnarkJsProof,
     publicSignals: string[],
     minAge: number = ZK_CONSTANTS.MIN_AGE
   ): Promise<VerificationResult> {
@@ -344,7 +344,7 @@ export class ProofVerifier {
   async batchVerifyProofs(
     proofs: Array<{
       type: 'identity' | 'session' | 'age';
-      proof: any;
+      proof: SnarkJsProof;
       publicSignals: string[];
       expectedCommitment?: string;
       minAge?: number;
@@ -378,7 +378,7 @@ export class ProofVerifier {
   // Verify proof with additional business logic validation
   async verifyProofWithBusinessRules(
     type: 'identity' | 'session' | 'age',
-    proof: any,
+    proof: SnarkJsProof,
     publicSignals: string[],
     options: {
       expectedCommitment?: string;
@@ -416,8 +416,14 @@ export class ProofVerifier {
   // Apply business logic validation
   private applyBusinessRules(
     result: VerificationResult,
-    type: string,
-    options: any
+    _type: 'identity' | 'session' | 'age',
+    _options: {
+      expectedCommitment?: string;
+      minAge?: number;
+      maxAge?: number;
+      allowedSessionTypes?: string[];
+      timeWindow?: number;
+    } = {},
   ): VerificationResult {
     // Add business-specific validation logic here
     // For now, just return the base result

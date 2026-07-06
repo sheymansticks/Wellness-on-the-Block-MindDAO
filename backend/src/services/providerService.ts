@@ -299,7 +299,7 @@ export async function listReviews(providerId: string, page = 1, limit = 20) {
 
 // --- Helpers --------------------------------------------------------------
 
-function sanitizeProvider(p: any, includeReviews = false) {
+function sanitizeProvider(p: ProviderWithRelations, includeReviews = false) {
   const base = {
     id: p.id,
     type: p.type,
@@ -342,6 +342,57 @@ function sanitizeProvider(p: any, includeReviews = false) {
     return { ...base, services: p.services, reviews: p.reviews }
   }
   return base
+}
+
+/**
+ * Structural type that captures the `Provider` fields used by the
+ * mapper below. Caller rows come from `prisma.provider.findMany`,
+ * `prisma.provider.findUnique`, `prisma.provider.create`, and
+ * `prisma.provider.update` with varying `include` clauses; `user`,
+ * `services`, and `reviews` are therefore optional.
+ */
+interface ProviderWithRelations {
+  id: string
+  type: ProviderType
+  isOnline: boolean
+  isVerified: boolean
+  verificationDate: Date | null
+  rating: number | null
+  totalSessions: number
+  experience: number
+  bio: string | null
+  specialties: string[]
+  languages: string[]
+  education: string[]
+  certifications: string[]
+  licenseNumber: string | null
+  licenseExpiry: Date | null
+  pricePerSession: number
+  currency: string
+  sessionDuration: number
+  consultationFee: number | null
+  timezone: string
+  createdAt: Date
+  user?: {
+    id: string
+    publicKey: string
+    isVerified: boolean
+    identityCommitment?: string | null
+    profile?: {
+      firstName: string
+      lastName: string
+      avatar: string | null
+    } | null
+  } | null
+  services?: Array<{ id: string }>
+  reviews?: Array<{
+    id: string
+    sessionId: string
+    rating: number
+    comment: string | null
+    anonymous: boolean
+    createdAt: Date
+  }>
 }
 
 function parseDate(input?: Date | string): Date | undefined {

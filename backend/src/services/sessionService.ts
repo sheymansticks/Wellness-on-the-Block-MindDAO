@@ -1,4 +1,4 @@
-import { Prisma, SessionStatus, SessionType } from '@prisma/client'
+import { Prisma, Session, SessionStatus, SessionType } from '@prisma/client'
 import crypto from 'crypto'
 import { prisma } from '@/config/database'
 import { logger } from '@/utils/logger'
@@ -343,7 +343,7 @@ export async function joinSession(sessionId: string, userId: string, zkProofHash
 
 // --- Helpers --------------------------------------------------------------
 
-function view(s: any): SessionView {
+function view(s: Session): SessionView {
   return {
     id: s.id,
     patientId: s.patientId,

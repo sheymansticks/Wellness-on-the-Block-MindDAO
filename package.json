@@ -1,0 +1,18 @@
+{
+  "name": "wellness-on-the-block-minddao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root workspace for the Wellness on the Block (MindDAO) monorepo. Holds shared dev tooling only; see backend/, frontend/, and zk-proofs/ for the actual packages.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2"
+  },
+  "lint-staged": {
+    "backend/src/**/*.ts": "sh -c 'cd backend && npm run lint'",
+    "frontend/**/*.{ts,tsx}": "sh -c 'cd frontend && npm run lint'",
+    "zk-proofs/src/**/*.ts": "sh -c 'cd zk-proofs && npm run lint'"
+  }
+}

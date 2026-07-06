@@ -21,11 +21,12 @@ function makeApp(opts: {
   const app = express()
   app.use((req: Request, _res: Response, next: NextFunction) => {
     if (opts.userId !== undefined) {
-      // We cast through `any` because the strict TokenPayload type
-      // requires more fields than the stub needs; the production
-      // route chain (`requireAuth` -> `getAuthUser`) populates the
-      // full payload from a verified JWT.
-      (req as any).user = { userId: opts.userId }
+      // The production route chain (`requireAuth` -> `getAuthUser`)
+      // populates `req.user` from a verified JWT. For the rate-limit
+      // stub we only need the `userId` slice, so we type the local
+      // shape explicitly and intersect with the strict Express type.
+      const userReq = req as Request & { user?: { userId: string } }
+      userReq.user = { userId: opts.userId }
     }
     next()
   })

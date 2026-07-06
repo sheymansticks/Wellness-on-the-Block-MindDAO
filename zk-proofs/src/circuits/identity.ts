@@ -1,10 +1,11 @@
 import { Circuit, groth16 } from 'snarkjs';
 import { buildMimcSponge } from 'circomlib';
 import { ethers } from 'ethers';
+import type { SnarkJsProof, SnarkJsVerificationKey } from '../types';
 
 // Identity verification circuit using zk-SNARKs
 export class IdentityCircuit {
-  private mimc: any;
+  private mimc: ReturnType<typeof buildMimcSponge>;
   private circuit: Circuit;
   private wasmPath: string;
   private zkeyPath: string;
@@ -69,7 +70,7 @@ export class IdentityCircuit {
     sessionType: string,
     minAge: number = 18
   ): Promise<{
-    proof: any;
+    proof: SnarkJsProof;
     publicSignals: string[];
   }> {
     const commitment = this.generateIdentityCommitment(identitySecret, attributes);
@@ -102,9 +103,9 @@ export class IdentityCircuit {
 
   // Verify zk-proof
   async verifyProof(
-    proof: any,
+    proof: SnarkJsProof,
     publicSignals: string[],
-    verificationKey?: any
+    verificationKey?: SnarkJsVerificationKey
   ): Promise<boolean> {
     try {
       const vKey = verificationKey || await this.loadVerificationKey();
@@ -117,9 +118,9 @@ export class IdentityCircuit {
   }
 
   // Load verification key
-  private async loadVerificationKey(): Promise<any> {
+  private async loadVerificationKey(): Promise<SnarkJsVerificationKey> {
     try {
-      return await fetch('/circuits/verification_key.json').then(res => res.json());
+      return (await fetch('/circuits/verification_key.json').then(res => res.json())) as SnarkJsVerificationKey;
     } catch (error) {
       throw new Error(`Failed to load verification key: ${error}`);
     }
@@ -132,7 +133,7 @@ export class IdentityCircuit {
     sessionType: string,
     timestamp: number
   ): Promise<{
-    proof: any;
+    proof: SnarkJsProof;
     publicSignals: string[];
   }> {
     const nullifier = this.generateNullifier(identitySecret, sessionType);
@@ -159,7 +160,7 @@ export class IdentityCircuit {
   }
 
   // Extract public signals from proof
-  extractPublicSignals(proofData: { proof: any; publicSignals: string[] }): {
+  extractPublicSignals(proofData: { proof: SnarkJsProof; publicSignals: string[] }): {
     commitment: string;
     nullifier: string;
     sessionType: string;
@@ -181,7 +182,7 @@ export class IdentityCircuit {
     age: number,
     minAge: number
   ): Promise<{
-    proof: any;
+    proof: SnarkJsProof;
     publicSignals: string[];
   }> {
     const commitment = this.generateIdentityCommitment(identitySecret, {

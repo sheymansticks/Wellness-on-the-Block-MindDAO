@@ -103,9 +103,20 @@ export const startSession = createAsyncThunk(
   }
 )
 
+export interface ProofData {
+  proof: {
+    pi_a: [string, string, string]
+    pi_b: [[string, string], [string, string], [string, string]]
+    pi_c: [string, string, string]
+    protocol: string
+    curve: string
+  }
+  publicSignals: string[]
+}
+
 export const completeSession = createAsyncThunk(
   'sessions/completeSession',
-  async ({ sessionId, proofData }: { sessionId: string; proofData?: any }) => {
+  async ({ sessionId, proofData }: { sessionId: string; proofData?: ProofData }) => {
     const response = await fetch(`/api/sessions/${sessionId}/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

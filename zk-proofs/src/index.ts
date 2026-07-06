@@ -31,7 +31,7 @@ export class ZKProofSystem {
     sessionType: string
   ): Promise<{
     commitment: string;
-    proof: any;
+    proof: import('./types').SnarkJsProof;
     publicSignals: string[];
     verification: VerificationResult;
   }> {
@@ -62,7 +62,7 @@ export class ZKProofSystem {
     commitment: string,
     sessionType: string
   ): Promise<{
-    proof: any;
+    proof: import('./types').SnarkJsProof;
     publicSignals: string[];
     verification: VerificationResult;
   }> {
@@ -92,7 +92,7 @@ export class ZKProofSystem {
     age: number,
     minAge: number = 18
   ): Promise<{
-    proof: any;
+    proof: import('./types').SnarkJsProof;
     publicSignals: string[];
     verification: VerificationResult;
   }> {

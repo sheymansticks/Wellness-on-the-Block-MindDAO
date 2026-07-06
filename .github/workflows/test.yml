@@ -1,20 +1,28 @@
-name: Backend Tests
+name: Monorepo CI
 
-# Trigger on push / PR when anything in the backend changes. The
-# `paths` filter keeps unrelated frontend / zk-proof / smart-contract
-# commits from spinning up a Node + Redis job for no reason.
+# Trigger on push / PR when any tracked package changes. The
+# `paths` filter keeps unrelated smart-contract commits from
+# spinning up a Node + Redis job for no reason. The workflow
+# file itself is included so changes to the CI config also
+# trigger a re-run.
 on:
   push:
     paths:
       - 'backend/**'
+      - 'frontend/**'
+      - 'zk-proofs/**'
+      - '.github/workflows/**'
   pull_request:
     paths:
       - 'backend/**'
+      - 'frontend/**'
+      - 'zk-proofs/**'
+      - '.github/workflows/**'
 
 # Cancel in-flight runs on the same ref so a force-push or rapid
 # follow-up commit doesn't burn a second Redis container.
 concurrency:
-  group: backend-tests-${{ github.ref }}
+  group: monorepo-ci-${{ github.ref }}
   cancel-in-progress: true
 
 # Least-privilege default for the GITHUB_TOKEN. Every job
@@ -164,4 +172,81 @@ jobs:
         # so regressions in the strict subset (no-undef,
         # no-console, no-var, prefer-const, ...) are caught at
         # CI time.
+        run: npm run lint
+
+  # Parallel `lint-frontend` job. Mirrors the backend lint job
+  # but with `working-directory: frontend`. Runs
+  # `npm run lint` -> `eslint . --ext ts,tsx ...` (per
+  # frontend/package.json). Uses the config at
+  # frontend/.eslintrc.json (extends recommended + react-hooks;
+  # permissive on no-explicit-any + no-unused-vars so the
+  # baseline is clean).
+  lint-frontend:
+    name: eslint (frontend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        # `npm ci` for reproducibility and dependency-drift
+        # detection (matches the other jobs). Requires
+        # frontend/package-lock.json to exist (generated via
+        # `npm install --package-lock-only`).
+        run: npm ci
+
+      - name: Lint
+        # `npm run lint` -> `eslint . --ext ts,tsx
+        # --report-unused-disable-directives --max-warnings 0`
+        # (per frontend/package.json). Fails the job on any
+        # violation, so frontend regressions in the strict subset
+        # (no-undef, no-console, no-var, prefer-const, ...) are
+        # caught at CI time.
+        run: npm run lint
+
+  # Parallel `lint-zk-proofs` job. Mirrors the backend lint job
+  # but with `working-directory: zk-proofs`. Runs
+  # `npm run lint` -> `eslint src/**/*.ts` (per
+  # zk-proofs/package.json). Uses the config at
+  # zk-proofs/.eslintrc.json (mirrors backend's config exactly
+  # so the lint baseline is consistent across the monorepo).
+  lint-zk-proofs:
+    name: eslint (zk-proofs)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: zk-proofs
+    env:
+      NODE_ENV: test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        # `npm ci` for reproducibility and dependency-drift
+        # detection. Requires zk-proofs/package-lock.json to
+        # exist (generated via
+        # `npm install --package-lock-only`).
+        run: npm ci
+
+      - name: Lint
+        # `npm run lint` -> `eslint src/**/*.ts` (per
+        # zk-proofs/package.json). Mirrors the backend lint
+        # job so the lint baseline is consistent across the
+        # monorepo.
         run: npm run lint

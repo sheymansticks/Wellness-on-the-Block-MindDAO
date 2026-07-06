@@ -79,8 +79,8 @@ router.post('/login', authRateLimit, validateLogin, asyncHandler(async (req, res
 // IP-keyed since no JWT is in play here. Stops refresh-token replay
 // storms from a single IP without affecting other unrelated users.
 router.post('/refresh', authRateLimit, asyncHandler(async (req, res) => {
-  const { refreshToken } = req.body
-  const result = await refreshToken(refreshToken)
+  const { refreshToken: refreshTokenJwt } = req.body
+  const result = await refreshToken(refreshTokenJwt)
 
   res.json({
     success: true,
