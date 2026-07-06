@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { logger } from '@/utils/logger'
 
 declare global {
-  var __prisma: PrismaClient | undefined
+  let __prisma: PrismaClient | undefined
 }
 
 // Prevent multiple instances of Prisma Client in development
