@@ -25,7 +25,7 @@ function makeApp(opts: {
       // requires more fields than the stub needs; the production
       // route chain (`requireAuth` -> `getAuthUser`) populates the
       // full payload from a verified JWT.
-      ;(req as any).user = { userId: opts.userId }
+      (req as any).user = { userId: opts.userId }
     }
     next()
   })
