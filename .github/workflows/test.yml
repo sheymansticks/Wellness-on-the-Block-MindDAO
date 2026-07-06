@@ -30,7 +30,10 @@ concurrency:
 # deploy, etc.) can opt into higher scopes locally. This is the
 # GitHub-recommended pattern for public repos and is the hard
 # requirement for restricting the default token scope under
-# branch protection.
+# branch protection. Each job below re-declares the same scope
+# explicitly so a future widening of THIS default cannot silently
+# elevate it; this default only applies to newly-added jobs that
+# do not set their own.
 permissions:
   contents: read
 
@@ -38,6 +41,9 @@ jobs:
   test:
     name: jest (with Redis)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: backend
@@ -106,6 +112,9 @@ jobs:
   build:
     name: tsc build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: backend
@@ -144,6 +153,9 @@ jobs:
   lint:
     name: eslint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: backend
@@ -184,6 +196,9 @@ jobs:
   lint-frontend:
     name: eslint (frontend)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -223,6 +238,9 @@ jobs:
   lint-zk-proofs:
     name: eslint (zk-proofs)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: zk-proofs
